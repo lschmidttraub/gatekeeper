@@ -1,0 +1,40 @@
+{
+  "manifest_version": 3,
+  "name": "Gatekeeper",
+  "version": "1.0.0",
+  "description": "Enforces intentional browsing: gate distracting sites behind a stated reason and a timer. Local-only, nothing leaves your machine.",
+  "permissions": [
+    "storage",
+    "alarms",
+    "tabs",
+    "webNavigation",
+    "declarativeNetRequest"
+  ],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Gatekeeper",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "options_page": "options/options.html",
+  "web_accessible_resources": [
+    {
+      "resources": ["prompt/prompt.html"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

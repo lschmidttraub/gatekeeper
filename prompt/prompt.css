@@ -1,0 +1,287 @@
+/* Gatekeeper prompt — calm, minimal, dark-mode aware. No gamification. */
+
+:root {
+  --bg: #f7f6f3;
+  --card: #ffffff;
+  --ink: #1f2430;
+  --muted: #6b7280;
+  --line: #e6e4de;
+  --accent: #b45309;
+  --accent-ink: #ffffff;
+  --danger: #b91c1c;
+  --field-bg: #fbfaf8;
+  --shadow: 0 10px 40px rgba(31, 36, 48, 0.08);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14161a;
+    --card: #1c1f26;
+    --ink: #e8e9ec;
+    --muted: #9aa0ab;
+    --line: #2b2f38;
+    --accent: #d97706;
+    --accent-ink: #1a1205;
+    --danger: #f87171;
+    --field-bg: #22262f;
+    --shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.card {
+  width: 100%;
+  max-width: 480px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  padding: 32px;
+}
+
+.head {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.mark {
+  color: var(--accent);
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  flex: none;
+}
+
+h1 {
+  font-size: 20px;
+  margin: 0;
+  font-weight: 600;
+}
+
+.host {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  word-break: break-all;
+}
+
+.field {
+  display: block;
+  margin-bottom: 20px;
+}
+
+.label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+textarea,
+input[type="number"] {
+  width: 100%;
+  background: var(--field-bg);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font: inherit;
+  resize: vertical;
+}
+
+textarea:focus,
+input[type="number"]:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: transparent;
+}
+
+.hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.hint.ok {
+  color: color-mix(in srgb, var(--accent) 70%, var(--ink));
+}
+
+.duration {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.duration input[type="number"] {
+  width: 90px;
+}
+
+.unit {
+  color: var(--muted);
+  font-size: 14px;
+  margin-left: -4px;
+}
+
+.quick {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.chip:hover {
+  border-color: var(--accent);
+}
+
+.chip.active {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  border-color: var(--accent);
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+button.primary,
+button.secondary {
+  flex: 1;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+button.primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+button.primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button.secondary {
+  background: transparent;
+  color: var(--muted);
+  border-color: var(--line);
+}
+
+.kbd-hint {
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+  margin: 16px 0 0;
+}
+
+kbd {
+  background: var(--field-bg);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 1px 6px;
+  font-size: 11px;
+}
+
+.error {
+  color: var(--danger);
+  font-size: 14px;
+  margin: 0 0 16px;
+}
+
+.reflect {
+  background: var(--field-bg);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-bottom: 24px;
+}
+
+.reflect-q {
+  margin: 0 0 6px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.reflect blockquote {
+  margin: 0 0 14px;
+  padding-left: 12px;
+  border-left: 3px solid var(--accent);
+  font-style: italic;
+}
+
+.reflect-btns {
+  display: flex;
+  gap: 8px;
+}
+
+.reflect .chip.active {
+  font-weight: 600;
+}
+
+.cooldown {
+  text-align: center;
+  padding: 8px 0 0;
+}
+
+.cooldown-title {
+  margin: 0 0 4px;
+  font-weight: 600;
+}
+
+.cooldown-time {
+  margin: 0;
+  color: var(--muted);
+}
+
+.cooldown-time span {
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* When cooling down, dim + block the form. */
+.card.cooling form {
+  opacity: 0.45;
+  pointer-events: none;
+  filter: grayscale(0.3);
+}

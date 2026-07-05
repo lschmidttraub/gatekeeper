@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Gatekeeper</title>
+    <link rel="stylesheet" href="prompt.css" />
+  </head>
+  <body>
+    <main class="card" id="card" hidden>
+      <header class="head">
+        <div class="mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="28" height="28">
+            <path
+              fill="currentColor"
+              d="M12 1.5a5 5 0 0 0-5 5V9H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2h-1V6.5a5 5 0 0 0-5-5Zm3 7.5H9V6.5a3 3 0 0 1 6 0V9Z"
+            />
+          </svg>
+        </div>
+        <div>
+          <h1>Take a breath</h1>
+          <p class="host" id="host">this site</p>
+        </div>
+      </header>
+
+      <!-- Reflection on the previous session (reprompt only) -->
+      <section class="reflect" id="reflect" hidden>
+        <p class="reflect-q">Earlier you said:</p>
+        <blockquote id="prevReason"></blockquote>
+        <p class="reflect-q">Did you do what you came to do?</p>
+        <div class="reflect-btns">
+          <button type="button" class="chip" id="fulfilledYes">Yes</button>
+          <button type="button" class="chip" id="fulfilledNo">Not really</button>
+        </div>
+      </section>
+
+      <form id="form" novalidate>
+        <label class="field">
+          <span class="label">Why are you here?</span>
+          <textarea
+            id="reason"
+            rows="3"
+            autocomplete="off"
+            spellcheck="true"
+            placeholder=""
+          ></textarea>
+          <span class="hint" id="reasonHint"></span>
+        </label>
+
+        <div class="field">
+          <span class="label">For how long?</span>
+          <div class="duration">
+            <input id="minutes" type="number" min="1" step="1" inputmode="numeric" />
+            <span class="unit">min</span>
+            <div class="quick" id="quick"></div>
+          </div>
+          <span class="hint" id="durationHint"></span>
+        </div>
+
+        <p class="error" id="error" role="alert" hidden></p>
+
+        <div class="actions">
+          <button type="button" class="secondary" id="cancel">Never mind</button>
+          <button type="submit" class="primary" id="continue">Continue</button>
+        </div>
+        <p class="kbd-hint">
+          <kbd id="metaLabel">Ctrl</kbd> + <kbd>Enter</kbd> to continue · <kbd>Esc</kbd> to leave
+        </p>
+      </form>
+
+      <!-- Cooldown overlay -->
+      <section class="cooldown" id="cooldown" hidden>
+        <p class="cooldown-title">You just finished a session here.</p>
+        <p class="cooldown-time">New session available in <span id="cooldownTime">0:00</span></p>
+      </section>
+    </main>
+
+    <script type="module" src="prompt.js"></script>
+  </body>
+</html>
