@@ -106,3 +106,7 @@ the prompt → an instant restart is blocked by the cooldown. It also proves a
 Everything is local. No network requests, no analytics, no sync. The only host
 permission is used to observe and gate navigation on your own machine; the
 extension never transmits anything.
+
+## License
+
+[MIT](LICENSE) © Leo Schmidt-Traub
