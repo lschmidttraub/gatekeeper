@@ -10,6 +10,8 @@ import {
   matchGatedHost,
   hostFromUrl,
   isHttpUrl,
+  pageKey,
+  isExcluded,
   windowMs,
   pruneStarts,
   requiredReasonChars,
@@ -25,13 +27,21 @@ const MAX_LOGS = 200;
 // --- Storage helpers -------------------------------------------------------
 
 async function readAll() {
-  const d = await chrome.storage.local.get(['config', 'sessions', 'cooldowns', 'starts', 'logs']);
+  const d = await chrome.storage.local.get([
+    'config',
+    'sessions',
+    'cooldowns',
+    'starts',
+    'logs',
+    'exclusions',
+  ]);
   return {
     config: { ...DEFAULT_CONFIG, ...(d.config || {}) },
     sessions: d.sessions || {},
     cooldowns: d.cooldowns || {},
     starts: d.starts || {},
     logs: d.logs || [],
+    exclusions: d.exclusions || [],
   };
 }
 
@@ -73,8 +83,10 @@ function promptUrl() {
 
 // One redirect rule per gated host that currently has no active session.
 // requestDomains matches subdomains automatically.
+const ALLOW_RULE_BASE = 1000; // exclusion allow-rule IDs live above the block-rule IDs
+
 async function rebuildDnrRules() {
-  const { config, sessions } = await readAll();
+  const { config, sessions, exclusions } = await readAll();
   const now = Date.now();
   const blocked = config.gatedHosts.filter((h) => {
     const s = sessions[h];
@@ -88,6 +100,23 @@ async function rebuildDnrRules() {
     action: { type: 'redirect', redirect: { extensionPath: '/prompt/prompt.html' } },
     condition: { requestDomains: [host], resourceTypes: ['main_frame'] },
   }));
+
+  // Allow-exceptions for excluded pages on gated hosts. priority 2 (> block's 1)
+  // and 'allow' both outrank the redirect, so the exact page loads with no flash.
+  // urlFilter '|<page>^': '|' anchors the URL start, '^' matches a separator or
+  // end-of-URL, so query variants match but a longer sibling path (…/1234) doesn't.
+  let allowId = ALLOW_RULE_BASE;
+  for (const e of exclusions) {
+    if (!e || !e.page) continue;
+    if (!matchGatedHost(hostFromUrl(e.page), config.gatedHosts)) continue;
+    addRules.push({
+      id: allowId++,
+      priority: 2,
+      action: { type: 'allow' },
+      condition: { urlFilter: '|' + e.page + '^', resourceTypes: ['main_frame'] },
+    });
+  }
+
   await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds, addRules });
 }
 
@@ -191,7 +220,11 @@ async function handleExpiry(gated) {
   if (!s) return; // already handled
 
   const tabs = await chrome.tabs.query({});
-  const hostTabs = tabs.filter((t) => hostMatches(gated, hostFromUrl(t.url)));
+  // Only non-excluded tabs get reprompted; excluded research pages stay open and
+  // don't count as "still here" for the outcome.
+  const hostTabs = tabs.filter(
+    (t) => hostMatches(gated, hostFromUrl(t.url)) && !isExcluded(t.url, all.exclusions)
+  );
   const outcome = hostTabs.length > 0 ? 'completed' : 'abandoned_early';
 
   await appendLog({
@@ -239,6 +272,29 @@ async function cancelPrompt(actualHost, tabId) {
   } catch {
     /* tab already gone */
   }
+  return { ok: true };
+}
+
+// Permanently allow-list a specific page (origin + path). Logged, then the DNR
+// allow-exception is installed so the page loads without gating.
+async function excludePage(actualHost, url) {
+  const key = pageKey(url);
+  if (!key) return { ok: false, error: 'This page cannot be allowed.' };
+  const all = await readAll();
+  const gated = matchGatedHost(hostFromUrl(url), all.config.gatedHosts) || actualHost || hostFromUrl(url);
+  if (!all.exclusions.some((e) => e.page === key)) {
+    all.exclusions.push({ host: gated, page: key, addedAt: Date.now() });
+    await chrome.storage.local.set({ exclusions: all.exclusions });
+  }
+  await rebuildDnrRules(); // install the allow rule before the prompt navigates
+  await appendLog({
+    ts: Date.now(),
+    host: gated,
+    reason: '',
+    requestedMinutes: null,
+    outcome: 'excluded',
+    fulfilled: null,
+  });
   return { ok: true };
 }
 
@@ -304,6 +360,7 @@ async function enforceOpenTabs() {
     if (!isHttpUrl(t.url)) continue;
     const gated = matchGatedHost(hostFromUrl(t.url), all.config.gatedHosts);
     if (!gated) continue;
+    if (isExcluded(t.url, all.exclusions)) continue;
     const s = all.sessions[gated];
     if (s && s.expiresAt > now) continue;
     await setTarget(t.id, t.url);
@@ -341,6 +398,7 @@ async function maybeRedirectSpa(details) {
   const all = await readAll();
   const gated = matchGatedHost(hostFromUrl(details.url), all.config.gatedHosts);
   if (!gated) return;
+  if (isExcluded(details.url, all.exclusions)) return; // allow-listed page
   const s = all.sessions[gated];
   if (s && s.expiresAt > Date.now()) return; // active session — allow
   // Blocked host navigating via history API — DNR can't see this. Redirect.
@@ -374,6 +432,7 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
   const all = await readAll();
   const gated = matchGatedHost(hostFromUrl(details.url), all.config.gatedHosts);
   if (!gated) return;
+  if (isExcluded(details.url, all.exclusions)) return;
   const s = all.sessions[gated];
   if (s && s.expiresAt > Date.now()) return;
   await setTarget(details.tabId, details.url);
@@ -389,7 +448,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   if (changeInfo.url && isHttpUrl(changeInfo.url)) {
     const all = await readAll();
     const gated = matchGatedHost(hostFromUrl(changeInfo.url), all.config.gatedHosts);
-    if (gated) {
+    if (gated && !isExcluded(changeInfo.url, all.exclusions)) {
       const s = all.sessions[gated];
       if (!(s && s.expiresAt > Date.now())) {
         await setTarget(tabId, changeInfo.url);
@@ -448,6 +507,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         case 'cancelPrompt':
           sendResponse(await cancelPrompt(msg.host, tabId));
           break;
+        case 'excludePage': {
+          const r = await excludePage(msg.host, msg.url);
+          if (r.ok) await clearTarget(tabId);
+          sendResponse(r);
+          break;
+        }
         case 'reflectFulfilled':
           sendResponse(await reflectFulfilled(msg.host, msg.fulfilled));
           break;
@@ -470,6 +535,7 @@ self.gatekeeper = {
   rebuildDnrRules,
   getPromptState,
   reflectFulfilled,
+  excludePage,
   readAll,
   updateBadgeForActiveTab,
   promptUrl,

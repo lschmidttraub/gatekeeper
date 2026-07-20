@@ -21,6 +21,13 @@ Chromium browser with Manifest V3).
 - **Reprompt at expiry.** When time runs out, *every* open tab on that host is
   immediately sent back to the prompt. It shows your previous reason and asks
   whether it was fulfilled. Continuing requires a fresh reason and duration.
+- **Always-allow a specific page.** The prompt has an *"Always allow this page"*
+  option for pages you need open for research (e.g. one x.com article). It
+  permanently allow-lists that exact page (origin + path, ignoring `?query` and
+  `#hash`), so it never gates and is never pulled back at expiry — while the rest
+  of the host still prompts. A longer sibling path (`…/article-12` vs `…/article-1`)
+  is *not* covered, so the exclusion can't quietly widen into the whole host.
+  Allow-listed pages are logged and are removable in Options.
 - **Anti-circumvention.**
   - A **30-second cooldown** after a session ends before you can start another on
     that host (shown as a live countdown; the form is disabled).
@@ -63,7 +70,8 @@ The `docs/` and `test/` folders are ignored by the browser.
 2. Navigate to a gated site. Fill in **why** (≥ 10 characters, ≥ 3 distinct words)
    and **how long** (a quick button or a number, capped at 30 minutes).
 3. **Continue** (or `Ctrl`/`Cmd`+`Enter`) drops you at the exact URL you wanted.
-   **Never mind** (or `Esc`) closes the tab.
+   **Never mind** (or `Esc`) closes the tab. **Always allow this page** pins that
+   one page so it never gates again (manage the list in Options).
 4. When the timer expires, all tabs on that host return to the prompt.
 
 ## How it works
@@ -73,6 +81,7 @@ The `docs/` and `test/` folders are ignored by the browser.
 | Block full page loads before they paint | `declarativeNetRequest` dynamic redirect rule per gated host with no active session (`requestDomains` → subdomains match free) |
 | Catch SPA navigation (e.g. YouTube's `pushState`) | `webNavigation.onHistoryStateUpdated` / `onReferenceFragmentUpdated` + a `tabs.onUpdated` fallback |
 | Restore the exact original URL on Continue | `webNavigation.onBeforeNavigate` captures the intended URL per tab; the prompt fetches it from the service worker |
+| Always-allow a specific page | A higher-priority DNR `allow` rule per excluded page (`allow` outranks `redirect`), plus an `isExcluded()` guard in every code-level redirect path; matched by page key (`origin + path`) with a `\|<page>^` filter so query variants match but sibling paths don't |
 | Expiry that survives service-worker suspension | `chrome.alarms` is the source of truth; on every wake the worker reconciles stored deadlines against `Date.now()` and expires anything stale |
 | Countdown badge | Best-effort refresh while the worker is awake; never gates expiry correctness |
 | State | `chrome.storage.local` (config, sessions, cooldowns, friction window, logs); per-tab targets in `chrome.storage.session` |

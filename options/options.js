@@ -16,11 +16,16 @@ async function getLogs() {
   const { logs } = await chrome.storage.local.get('logs');
   return logs || [];
 }
+async function getExclusions() {
+  const { exclusions } = await chrome.storage.local.get('exclusions');
+  return exclusions || [];
+}
 
 const OUTCOME_LABEL = {
   completed: 'Completed',
   abandoned_early: 'Left early',
   cancelled: 'Cancelled',
+  excluded: 'Allowed page',
 };
 
 // --- Gated sites -----------------------------------------------------------
@@ -70,6 +75,49 @@ async function addSite(e) {
   input.focus();
 }
 
+// --- Always-allowed pages --------------------------------------------------
+
+async function renderExclusions() {
+  const exclusions = await getExclusions();
+  const list = $('allowList');
+  list.innerHTML = '';
+  if (!exclusions.length) {
+    const li = document.createElement('li');
+    li.className = 'empty';
+    li.textContent = 'No always-allowed pages yet.';
+    list.appendChild(li);
+    return;
+  }
+  const sorted = [...exclusions].sort((a, b) =>
+    a.host === b.host ? a.page.localeCompare(b.page) : a.host.localeCompare(b.host)
+  );
+  for (const ex of sorted) {
+    const li = document.createElement('li');
+    li.className = 'allow-item';
+
+    const text = document.createElement('div');
+    text.className = 'allow-text';
+    const hostLine = document.createElement('div');
+    hostLine.className = 'allow-host';
+    hostLine.textContent = ex.host;
+    const pageLine = document.createElement('div');
+    pageLine.className = 'allow-page';
+    pageLine.textContent = ex.page;
+    text.append(hostLine, pageLine);
+
+    const btn = document.createElement('button');
+    btn.className = 'remove';
+    btn.textContent = 'Remove';
+    btn.addEventListener('click', async () => {
+      const next = (await getExclusions()).filter((e) => e.page !== ex.page);
+      await chrome.storage.local.set({ exclusions: next });
+    });
+
+    li.append(text, btn);
+    list.appendChild(li);
+  }
+}
+
 // --- Stats (today) ---------------------------------------------------------
 
 function startOfToday() {
@@ -84,12 +132,14 @@ async function renderStats() {
   const today = logs.filter((e) => e.ts >= since);
   const byHost = {};
   for (const e of today) {
-    const h = (byHost[e.host] = byHost[e.host] || { sessions: 0, minutes: 0, cancels: 0 });
+    const h = (byHost[e.host] = byHost[e.host] || { sessions: 0, minutes: 0, cancels: 0, allowed: 0 });
     if (e.outcome === 'completed' || e.outcome === 'abandoned_early') {
       h.sessions += 1;
       h.minutes += e.requestedMinutes || 0;
     } else if (e.outcome === 'cancelled') {
       h.cancels += 1;
+    } else if (e.outcome === 'excluded') {
+      h.allowed += 1;
     }
   }
 
@@ -116,6 +166,7 @@ async function renderStats() {
     card.appendChild(statRow('Sessions', String(s.sessions)));
     card.appendChild(statRow('Minutes', String(s.minutes)));
     card.appendChild(statRow('Cancel rate', rate + '%'));
+    if (s.allowed) card.appendChild(statRow('Pages allowed', String(s.allowed)));
     stats.appendChild(card);
   }
 }
@@ -182,7 +233,7 @@ function outcomeCell(outcome) {
 // --- Wire up + live refresh ------------------------------------------------
 
 async function renderAll() {
-  await Promise.all([renderSites(), renderStats(), renderLog()]);
+  await Promise.all([renderSites(), renderExclusions(), renderStats(), renderLog()]);
 }
 
 $('addForm').addEventListener('submit', addSite);
@@ -190,6 +241,7 @@ $('addForm').addEventListener('submit', addSite);
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local') return;
   if (changes.config) renderSites();
+  if (changes.exclusions) renderExclusions();
   if (changes.logs) {
     renderStats();
     renderLog();

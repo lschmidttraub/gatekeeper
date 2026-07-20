@@ -207,6 +207,43 @@ button.secondary {
   border-color: var(--line);
 }
 
+.allow-row {
+  margin-top: 14px;
+  text-align: center;
+}
+
+button.allow {
+  width: 100%;
+  background: transparent;
+  color: var(--muted);
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  padding: 10px 16px;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+button.allow:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.allow-preview {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.allow-preview code {
+  background: var(--field-bg);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 1px 6px;
+  word-break: break-all;
+}
+
 .kbd-hint {
   text-align: center;
   color: var(--muted);

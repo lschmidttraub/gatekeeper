@@ -222,6 +222,69 @@ async function main() {
       const disabled = await page.$eval('#continue', (el) => el.disabled);
       assert.ok(disabled, 'Continue should be disabled while cooling down');
     });
+    await page.close();
+    await page2.close();
+
+    // ======================================================================
+    // Scenario C — per-page exclusions
+    // ======================================================================
+    console.log('\nScenario C: allow-list a specific page; it survives the gate and expiry');
+    await reset();
+    const ARTICLE = `http://${GATED}/research/article-1`;
+
+    const research = await browser.newPage();
+    await research.goto(ARTICLE, { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await waitForUrl(research, (u) => u.startsWith(promptPrefix), 15000, '(research->prompt)');
+
+    await step('the prompt offers to always-allow the exact page', async () => {
+      await research.waitForSelector('#allowPage', { visible: true, timeout: 10000 });
+      const preview = await research.$eval('#allowPreview', (el) => el.textContent);
+      assert.equal(preview, ARTICLE, `preview should show the page key, got ${preview}`);
+    });
+
+    await step('"Always allow this page" loads the page and records the exclusion', async () => {
+      await Promise.all([
+        research.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
+        research.click('#allowPage'),
+      ]);
+      await waitForUrl(research, (u) => u.startsWith(ARTICLE), 15000, '(prompt->allowed page)');
+      const ex = await worker.evaluate(async () => (await self.gatekeeper.readAll()).exclusions);
+      assert.ok(ex.some((e) => e.page === ARTICLE), 'exclusion should be stored');
+    });
+
+    await step('a fresh tab to the excluded page (with query) loads directly — DNR allow beats redirect', async () => {
+      const again = await browser.newPage();
+      await again.goto(`${ARTICLE}?src=twitter`, { waitUntil: 'domcontentloaded' }).catch(() => {});
+      await sleep(700);
+      assert.ok(again.url().startsWith(ARTICLE), `excluded page should load, got ${again.url()}`);
+      await again.close();
+    });
+
+    await step('a longer sibling path on the same host is still gated (^ anchor boundary)', async () => {
+      const sibling = await browser.newPage();
+      await sibling.goto(`${ARTICLE}2`, { waitUntil: 'domcontentloaded' }).catch(() => {});
+      await waitForUrl(sibling, (u) => u.startsWith(promptPrefix), 15000, '(sibling->prompt)');
+      await sibling.close();
+    });
+
+    await step('at expiry, the excluded tab stays put while a non-excluded tab is reprompted', async () => {
+      const feed = await browser.newPage();
+      await worker.evaluate((h) => self.gatekeeper.startSession(h, 'checking the feed now', 1), GATED);
+      await feed.goto(`http://${GATED}/feed`, { waitUntil: 'domcontentloaded' }).catch(() => {});
+      assert.ok(feed.url().startsWith(`http://${GATED}/feed`), 'feed tab should load during the session');
+
+      // Expire via the hook (the real-alarm path is already proven in Scenario B).
+      await worker.evaluate((h) => self.gatekeeper.handleExpiry(h), GATED);
+
+      await waitForUrl(feed, (u) => u.startsWith(promptPrefix), 10000, '(feed expiry reprompt)');
+      await sleep(800); // give any erroneous redirect a chance to fire on the excluded tab
+      assert.ok(
+        research.url().startsWith(ARTICLE),
+        `excluded tab must NOT be redirected at expiry, but url is ${research.url()}`
+      );
+      await feed.close();
+    });
+    await research.close();
 
     exitCode = failed === 0 ? 0 : 1;
   } catch (e) {

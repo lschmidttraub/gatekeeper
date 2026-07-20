@@ -18,6 +18,8 @@ import {
   formatBadge,
   formatCountdown,
   distinctWordCount,
+  pageKey,
+  isExcluded,
 } from '../lib/common.js';
 
 let passed = 0;
@@ -109,6 +111,33 @@ test('countdown format is m:ss', () => {
   assert.equal(formatCountdown(30_000), '0:30');
   assert.equal(formatCountdown(90_000), '1:30');
   assert.equal(formatCountdown(-5), '0:00');
+});
+
+test('pageKey strips query/fragment and lowercases host', () => {
+  assert.equal(pageKey('https://X.com/u/status/123?s=20'), 'https://x.com/u/status/123');
+  assert.equal(pageKey('https://x.com/u/status/123#frag'), 'https://x.com/u/status/123');
+  assert.equal(pageKey('https://x.com/'), 'https://x.com/');
+  assert.equal(pageKey('chrome://extensions'), null);
+  assert.equal(pageKey('not a url'), null);
+});
+
+test('isExcluded matches a page regardless of query, and only that page', () => {
+  const ex = [{ host: 'x.com', page: 'https://x.com/u/status/123', addedAt: 1 }];
+  assert.equal(isExcluded('https://x.com/u/status/123', ex), true);
+  assert.equal(isExcluded('https://x.com/u/status/123?s=20', ex), true);
+  assert.equal(isExcluded('https://x.com/u/status/123#x', ex), true);
+  // The boundary the DNR '^' anchor also protects: a longer sibling path is NOT excluded.
+  assert.equal(isExcluded('https://x.com/u/status/1234', ex), false);
+  assert.equal(isExcluded('https://x.com/u/status/12', ex), false);
+  assert.equal(isExcluded('https://x.com/other', ex), false);
+  // A subdomain page is its own page key — parent-host exclusion doesn't leak to it.
+  assert.equal(isExcluded('https://m.x.com/u/status/123', ex), false);
+});
+
+test('isExcluded is safe on empty/invalid input', () => {
+  assert.equal(isExcluded('https://x.com/a', []), false);
+  assert.equal(isExcluded('https://x.com/a', undefined), false);
+  assert.equal(isExcluded('not a url', [{ host: 'x.com', page: 'x' }]), false);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

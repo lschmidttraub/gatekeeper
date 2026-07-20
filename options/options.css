@@ -259,3 +259,31 @@ table.log td.reason {
   background: color-mix(in srgb, var(--muted) 22%, transparent);
   color: var(--muted);
 }
+
+.tag.excluded {
+  background: color-mix(in srgb, #2563eb 20%, transparent);
+  color: #2563eb;
+}
+
+@media (prefers-color-scheme: dark) {
+  .tag.excluded {
+    color: #93c5fd;
+  }
+}
+
+/* Allow-list rows: page under a host label. */
+.allow-item .allow-page {
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.allow-item .allow-host {
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 2px;
+}
+
+.allow-item .allow-text {
+  min-width: 0;
+  margin-right: 12px;
+}

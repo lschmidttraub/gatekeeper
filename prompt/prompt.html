@@ -63,6 +63,14 @@
           <button type="button" class="secondary" id="cancel">Never mind</button>
           <button type="submit" class="primary" id="continue">Continue</button>
         </div>
+
+        <div class="allow-row" id="allowRow" hidden>
+          <button type="button" class="allow" id="allowPage">Always allow this page</button>
+          <p class="allow-preview">
+            Skips the gate from now on for<br /><code id="allowPreview"></code>
+          </p>
+        </div>
+
         <p class="kbd-hint">
           <kbd id="metaLabel">Ctrl</kbd> + <kbd>Enter</kbd> to continue · <kbd>Esc</kbd> to leave
         </p>

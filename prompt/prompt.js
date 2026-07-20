@@ -1,6 +1,7 @@
 // Gatekeeper prompt page logic.
 import {
   hostFromUrl,
+  pageKey,
   validateReason,
   distinctWordCount,
   requiredReasonChars,
@@ -97,6 +98,14 @@ function render() {
     $('fulfilledNo').addEventListener('click', () => reflect(false, $('fulfilledNo')));
   }
 
+  // "Always allow this page" — a one-tap permanent per-page exclusion.
+  const key = pageKey(target);
+  if (key) {
+    $('allowPreview').textContent = key;
+    $('allowRow').hidden = false;
+    $('allowPage').addEventListener('click', allowPage);
+  }
+
   updateHints();
   wireForm();
   wireCancel();
@@ -187,6 +196,18 @@ async function submit() {
     $('continue').disabled = false;
     if (res && res.cooldownUntil) startCooldown(res.cooldownUntil);
     showError((res && res.error) || 'Could not start the session.');
+  }
+}
+
+async function allowPage() {
+  // Not a session, so this stays available even during cooldown.
+  $('allowPage').disabled = true;
+  const res = await send({ type: 'excludePage', host, url: target });
+  if (res && res.ok) {
+    window.location.replace(target);
+  } else {
+    $('allowPage').disabled = false;
+    showError((res && res.error) || 'Could not allow this page.');
   }
 }
 
